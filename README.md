@@ -1,6 +1,7 @@
 # ChessGame
 A C# console chess game
-As chess is a hobby of mine, this project is an exercise for applying my C# knowledge.
+
+Chess is a hobby of mine; this project is an exercise for applying my C# knowledge.
 
 Created for .NET 6.0 (Console). 
 
