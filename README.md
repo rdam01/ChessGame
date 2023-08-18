@@ -6,7 +6,6 @@ Chess is a hobby of mine; this project is an exercise for applying my C# knowled
 Created for .NET 6.0 (Console). 
 
 This is a work in progress. To be done:
-- stalemate detection
 - 3-fold repetition detection
 - 50-move rule
 - improve notation
