@@ -52,9 +52,14 @@ public class Game: IGame
     }
     private void DetermineGameResult(MoveResultStruct moveResult)
     {
-        if (moveResult.MoveResult == MoveResult.Checkmate)
+        switch (moveResult.MoveResult)
         {
-            _result = _board.CheckState == CheckState.White ? GameResult.BlackWins : GameResult.WhiteWins;            
+            case MoveResult.Checkmate:
+                _result = _board.CheckState == CheckState.White ? GameResult.BlackWins : GameResult.WhiteWins;
+                break;
+            case MoveResult.Stalemate:
+                _result = GameResult.Draw;
+                break;
         }
     }
     private void ShowGameResult() 
@@ -69,7 +74,10 @@ public class Game: IGame
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("White wins by checkmate!");
                 break;
-            // TODO
+            case GameResult.Draw:
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("The game is a draw!");
+                break;
         }
     }
     public void DrawStatus()

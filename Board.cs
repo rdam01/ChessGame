@@ -8,6 +8,8 @@ public class Board: IBoard
     private Piece WhiteKing { get; init; }
     private List<Piece> WhitePawns { get; init; }
     private Piece BlackKing { get; init; }
+    private List<Piece> _whitePieces;
+    private List<Piece> _blackPieces;
     private List<Piece> BlackPawns { get; init; }
     public CheckState CheckState { get; private set; }
     public CheckState GetCheckState()
@@ -30,7 +32,10 @@ public Board(IGame game)
         WhitePawns = new List<Piece>();
         BlackKing = new King(this, Color.Black);
         BlackPawns = new List<Piece>();
+        _whitePieces = new List<Piece>();
+        _blackPieces = new List<Piece>();
         AddPieces();
+        //AddPiecesStalemate();
     }
     private void Init()
     {
@@ -50,22 +55,34 @@ public Board(IGame game)
             }
         }
     }
+    private void AddPiece(Column column, int row, Piece piece)
+    {
+        if (piece.Color == Color.White)
+        {
+            _whitePieces.Add(piece);
+        }
+        else
+        {
+            _blackPieces.Add(piece);
+        }
+        _squares[(int)column, row].SetPiece(piece);
+    }
     private void AddPieces()
     {
         // White
         for (Column col = Column.a; col <= Column.h; col++)
         {
             WhitePawns.Add(new Pawn(this, Color.White));
-            _squares[(int)col, 1].SetPiece(WhitePawns[(int)col]);
-        }
-        _squares[(int)Column.a, 0].SetPiece(new Rook(this, Color.White, RookSide.QueenSide));
-        _squares[(int)Column.b, 0].SetPiece(new Knight(this, Color.White));
-        _squares[(int)Column.c, 0].SetPiece(new Bishop(this, Color.White));
-        _squares[(int)Column.d, 0].SetPiece(new Queen(this, Color.White));
-        _squares[(int)Column.e, 0].SetPiece(WhiteKing);
-        _squares[(int)Column.f, 0].SetPiece(new Bishop(this, Color.White));
-        _squares[(int)Column.g, 0].SetPiece(new Knight(this, Color.White));
-        _squares[(int)Column.h, 0].SetPiece(new Rook(this, Color.White, RookSide.KingSide));
+            AddPiece(col, 1, WhitePawns[(int) col]);            
+        }        
+        AddPiece(Column.a, 0, new Rook(this, Color.White, RookSide.QueenSide));
+        AddPiece(Column.b, 0, new Knight(this, Color.White));
+        AddPiece(Column.c, 0, new Bishop(this, Color.White));
+        AddPiece(Column.d, 0, new Queen(this, Color.White));
+        AddPiece(Column.e, 0, WhiteKing);
+        AddPiece(Column.f, 0, new Bishop(this, Color.White));
+        AddPiece(Column.g, 0, new Knight(this, Color.White));
+        AddPiece(Column.h, 0, new Rook(this, Color.White, RookSide.KingSide));
 
         // Black
         for (Column col = Column.a; col <= Column.h; col++)
@@ -73,14 +90,23 @@ public Board(IGame game)
             BlackPawns.Add(new Pawn(this, Color.Black));
             _squares[(int)col, 6].SetPiece(BlackPawns[(int)col]);
         }
-        _squares[(int)Column.a, 7].SetPiece(new Rook(this, Color.Black, RookSide.QueenSide));
-        _squares[(int)Column.b, 7].SetPiece(new Knight(this, Color.Black));
-        _squares[(int)Column.c, 7].SetPiece(new Bishop(this, Color.Black));
-        _squares[(int)Column.d, 7].SetPiece(new Queen(this, Color.Black));
-        _squares[(int)Column.e, 7].SetPiece(BlackKing);
-        _squares[(int)Column.f, 7].SetPiece(new Bishop(this, Color.Black));
-        _squares[(int)Column.g, 7].SetPiece(new Knight(this, Color.Black));
-        _squares[(int)Column.h, 7].SetPiece(new Rook(this, Color.Black, RookSide.KingSide));
+        AddPiece(Column.a, 7, new Rook(this, Color.Black, RookSide.QueenSide));
+        AddPiece(Column.b, 7, new Knight(this, Color.Black));
+        AddPiece(Column.c, 7, new Bishop(this, Color.Black));
+        AddPiece(Column.d, 7, new Queen(this, Color.Black));
+        AddPiece(Column.e, 7, BlackKing);
+        AddPiece(Column.f, 7, new Bishop(this, Color.Black));
+        AddPiece(Column.g, 7, new Knight(this, Color.Black));
+        AddPiece(Column.h, 7, new Rook(this, Color.Black, RookSide.KingSide));
+    }
+    private void AddPiecesStalemate()
+    {
+        CastlingState[(int)Color.White].CastlingRight = CastlingRight.None;
+        CastlingState[(int)Color.Black].CastlingRight = CastlingRight.None;
+
+        AddPiece(Column.h, 7, BlackKing);
+        AddPiece(Column.f, 6, WhiteKing);
+        AddPiece(Column.g, 5, new Queen(this, Color.White));
     }
     public Square GetSquare(Column col, int row)
     {
@@ -93,24 +119,27 @@ public Board(IGame game)
     {
         return true;
     }
-    private void DetermineValidMoves(Color color)
+    // Valid moves, regardless of checks
+    private bool DetermineValidMoves(Color color)
     {
+        bool hasValidMoves = false;
         if (color == Color.White)
         {
-            WhiteKing.DetermineValidMoves();
-            foreach (Piece piece in WhitePawns)
+            foreach (Piece piece in _whitePieces)
             {
                 piece.DetermineValidMoves();
+                hasValidMoves |= (piece.ValidMoves != 0);
             }
         }
         else
         {
-            BlackKing.DetermineValidMoves();
-            foreach (Piece piece in BlackPawns)
+            foreach (Piece piece in _blackPieces)
             {
                 piece.DetermineValidMoves();
+                hasValidMoves |= (piece.ValidMoves != 0);
             }
         }
+        return hasValidMoves;
     }
     public MoveResultStruct Move(Color color, Square fromSquare, Square toSquare)
     {
@@ -161,7 +190,13 @@ public Board(IGame game)
         MoveResultStruct result = new MoveResultStruct();
         result.MoveResult = MoveResult.Invalid;
 
-        DetermineValidMoves(color);
+        bool hasValidMoves = DetermineValidMoves(color); // valid moves regardless of check
+        if (IsStaleMate(color))
+        {
+            result.MoveResult = MoveResult.Stalemate;
+            return result;
+        }
+
         Square fromSquare = color == Color.White ? _squares[(int)Column.e, 1] : _squares[(int)Column.e, 6];
         Square toSquare = fromSquare;
         Square? oldEnpassantSquare = EnPassantSquare;
@@ -178,47 +213,12 @@ public Board(IGame game)
             toSquare = SelectSquare(toSquare);
 
             result = Move(color, fromSquare, toSquare);
-/*
-            if (fromSquare != toSquare)
-            {                
-                result = fromSquare.Piece.Move(toSquare);
 
-                if (result.MoveResult != MoveResult.Invalid)
-                {
-                    result.Piece = fromSquare.Piece;
-                    result.From = fromSquare;
-                    result.To = toSquare;
-                    result.MoveResult = HandleSelfCheck(result); // make move if not selfcheck
-                }
-            }            
-*/
             fromSquare.Highlight(false);
             toSquare.Highlight(false);
         }
         while (result.MoveResult == MoveResult.Invalid);
-/*
-        if (result.MoveResult == MoveResult.Promotion)
-        {
-            HandlePromotion(color, toSquare);
-        }
 
-        // reset enpassant square (unless there is a new one)
-        if (oldEnpassantSquare != null && oldEnpassantSquare == EnPassantSquare)
-        {
-            EnPassantSquare = null;
-        }
-        if (DetermineCheck(color == Color.White ? Color.Black : Color.White, setCheckState:true)) // determine for opposite color               
-        {
-            if (DetermineCheckmate())
-            {
-                result.MoveResult = MoveResult.Checkmate;
-            }
-            else
-            {
-                result.MoveResult = MoveResult.Check;
-            }
-        }
-*/        
         return result;
     }
     private bool TryMove(Piece piece, Square toSquare)
@@ -291,21 +291,18 @@ public Board(IGame game)
             Piece? theKing = null;            
             switch (CheckState)
             {
-                case CheckState.White:
-                    //WhiteKing.DetermineValidMoves();
-                    DetermineValidMoves(Color.White);
-                    hasValidMove = WhiteKing.ValidMoves != 0;
-                    hasValidMove &= TryValidMoves(WhiteKing);
+                case CheckState.White:                                        
                     theKing = WhiteKing;
                     break;
                 case CheckState.Black:
-                    //BlackKing.DetermineValidMoves();
-                    DetermineValidMoves(Color.Black);
-                    hasValidMove = BlackKing.ValidMoves != 0;
-                    hasValidMove &= TryValidMoves(BlackKing);
                     theKing = BlackKing;
                     break;
             }
+            //DetermineValidMoves(theKing!.Color);
+            theKing!.DetermineValidMoves();
+            hasValidMove = theKing!.ValidMoves != 0;
+            hasValidMove &= TryValidMoves(theKing!);
+
             if (!hasValidMove && CheckingPieces.Count == 1) // in case of double check, the king MUST move
             {
                 Color oppositeColor = theKing!.Color == Color.White ? Color.Black : Color.White;
@@ -360,6 +357,29 @@ public Board(IGame game)
             // in check after move: invalid
             result = MoveResult.Invalid;
             UndoMove(moveResult);
+        }
+        return result;
+    }
+    private bool TryUntilValidMove(Color color)
+    {
+        bool result = false;
+        result |= color == Color.White ? TryValidMoves(WhiteKing) : TryValidMoves(BlackKing);
+        if (!result)
+        {
+            List<Piece> pieces = color == Color.White? _whitePieces : _blackPieces;
+            for (int i = 0; i < pieces.Count && !result; i++)
+            {
+                result |= TryValidMoves(pieces[i]);
+            }
+        }
+        return result;
+    }
+    private bool IsStaleMate(Color color)
+    {
+        bool result = false;
+        if (CheckState == CheckState.None)
+        {
+            result = !TryUntilValidMove(color);
         }
         return result;
     }
@@ -682,7 +702,7 @@ public Board(IGame game)
                                 else
                                 {
                                     isAttackingPiece = (Square.IsDiagonal(square, curSquare) &&
-                                                       (square.Column + pawnOffset == curSquare.Column));
+                                                       (square.Row + pawnOffset == curSquare.Row));
                                 }
                                 break;
                             case PieceType.Rook:
@@ -697,6 +717,12 @@ public Board(IGame game)
                                                    (Square.IsVertical(square, curSquare)) ||
                                                    (Square.IsDiagonal(square, curSquare));
                                 break;
+                            case PieceType.King:
+                                int nrOfColumns = Math.Abs(square.Column - curSquare.Column);
+                                int nrOfRows = Math.Abs(square.Row - curSquare.Row);
+                                isAttackingPiece = (nrOfColumns > 0 || nrOfRows > 0) && nrOfColumns <= 1 && nrOfRows <= 1;                                 
+                                break;
+
                         }
                         if (isAttackingPiece)
                         {

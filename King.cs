@@ -27,7 +27,7 @@ public class King : Piece
 
         int nrOfColumns = Math.Abs(Square!.Column - toSquare.Column);
         int nrOfRows = Math.Abs(Square!.Row - toSquare.Row);
-        bool stillOk = (nrOfColumns == 1 || nrOfRows == 1);
+        bool stillOk = (nrOfColumns > 0 || nrOfRows > 0) && nrOfColumns <= 1 && nrOfRows <= 1;
         stillOk = stillOk && (toSquare.Piece == null || toSquare.Piece.Color == _oppositeColor);
 
         if (stillOk)  // "normal" move

@@ -9,6 +9,7 @@ public abstract class Piece: IPiece
     protected IBoard _board;
     public Square? Square { get; set; }
     public Color Color { get; private set; }
+    public bool IsOnBoard { get; set; }
     protected Color _oppositeColor;
     protected bool IsValidMove(Square? toSquare)
     {
@@ -46,6 +47,7 @@ public abstract class Piece: IPiece
         Color = color;
         _board = board;
         _oppositeColor = color == Color.Black ? Color.White : Color.Black;
+        IsOnBoard = false;
     }
     public virtual void Draw()
     {
@@ -72,4 +74,5 @@ public interface IPiece
     public MoveResultStruct Move(Square square);
     public void DetermineValidMoves();
     public void Draw();
+    public bool IsOnBoard { get; set; }
 }

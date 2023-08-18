@@ -14,6 +14,7 @@ public class Square
     {
         Piece = piece;
         piece.Square = this;
+        piece.IsOnBoard = true;
     }
     public bool HasPiece()
     {
@@ -21,6 +22,10 @@ public class Square
     }
     public void RemovePiece()
     {
+        if (Piece != null) 
+        {
+            Piece.IsOnBoard = false;
+        }
         Piece = null;
     }
     public override String ToString()

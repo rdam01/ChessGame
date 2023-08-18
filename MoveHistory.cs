@@ -19,6 +19,12 @@ public class MoveHistory
     private String GetNotation(MoveResultStruct move)
     {
         String result = "";
+        if (move.MoveResult == MoveResult.Stalemate)
+        {
+            result = "½-½";
+            return result;
+        }
+        
         // move nr
         if (_moves.Count % 2 == 1)
         {
