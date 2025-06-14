@@ -59,19 +59,48 @@ public class King : Piece
     private bool CanCastle(Square castlingSquare) 
     {
         bool result = false;
-        if (!_board.HasPieceBetween(Square!, castlingSquare))
+        try
         {
-            bool isCheck = false;
-            int direction = Square!.Column < castlingSquare.Column? 1: -1;
-            Square square = _board.GetSquare(Square.Column, Square.Row);
-            do
+            // First check if there are any pieces between king and castling square
+            if (!_board.HasPieceBetween(Square!, castlingSquare))
             {
-                square = _board.GetSquare(square.Column + direction, square.Row);
-                isCheck = _board.IsSquareInCheck(square, Color);                
+                // Check if king's current square is in check
+                if (_board.IsSquareInCheck(Square!, Color))
+                {
+                    return false; // Cannot castle out of check
+                }
+                
+                // Check all squares the king passes through, including the destination
+                bool isCheck = false;
+                int direction = Square!.Column < castlingSquare.Column ? 1 : -1;
+                Square? square = Square;
+                
+                // Start from the king's square and move towards the castling square
+                while (!isCheck && square != null && square.Column != castlingSquare.Column)
+                {
+                    // Move to the next square
+                    square = _board.GetSquare(square.Column + direction, square.Row);
+                    
+                    // Check if the square is in check
+                    if (square != null)
+                    {
+                        isCheck = _board.IsSquareInCheck(square, Color);
+                    }
+                    else
+                    {
+                        isCheck = true; // Invalid square, cannot castle
+                    }
+                }
+                
+                result = !isCheck;
             }
-            while (!isCheck && square != castlingSquare) ;
-            result = !isCheck;
-        }        
+        }
+        catch (Exception)
+        {
+            // If there's any exception, assume castling is not possible
+            result = false;
+        }
+        
         return result;
     }
     public override void DetermineValidMoves()
@@ -101,4 +130,3 @@ public class King : Piece
         }
     }
 }
-

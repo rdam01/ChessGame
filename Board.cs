@@ -502,14 +502,64 @@ public Board(IGame game)
     {
         return CastlingState[(int)color].CastlingRight;
     }
-    private void UndoMove(MoveResultStruct moveResult)
+    public void UndoMove(MoveResultStruct moveResult)
     {
         moveResult.From.SetPiece(moveResult.Piece);
         moveResult.To.RemovePiece();
         if (moveResult.CapturedPiece != null)
         {
             moveResult.CapturedPiece.Square!.SetPiece(moveResult.CapturedPiece);
-        }        
+        }
+        
+        bool bDoUpdateMoveCounts = false;
+        // Undo castling move if necessary
+        if (moveResult.MoveResult == MoveResult.CastleShort || moveResult.MoveResult == MoveResult.CastleLong)
+        {
+            Square? rookSquare = null;
+            Square? newRookSquare = null;
+            
+            switch (moveResult.MoveResult) 
+            {
+                case MoveResult.CastleShort:
+                    if (moveResult.Piece.Color == Color.White)
+                    {
+                        rookSquare = GetSquare(Column.h, 0);
+                        newRookSquare = GetSquare(Column.f, 0);
+                    }    
+                    else
+                    {
+                        rookSquare = GetSquare(Column.h, 7);
+                        newRookSquare = GetSquare(Column.f, 7);
+                    }                
+                    break;
+                case MoveResult.CastleLong:
+                    if (moveResult.Piece.Color == Color.White)
+                    {
+                        rookSquare = GetSquare(Column.a, 0);
+                        newRookSquare = GetSquare(Column.d, 0);
+                    }
+                    else
+                    {
+                        rookSquare = GetSquare(Column.a, 7);
+                        newRookSquare = GetSquare(Column.d, 7);
+                    }
+                    break;
+            }
+            
+            if (rookSquare != null && newRookSquare != null && newRookSquare.Piece != null)
+            {
+                rookSquare.SetPiece(newRookSquare.Piece);
+                newRookSquare.RemovePiece();
+
+                // Restore castling rights
+                bDoUpdateMoveCounts = true;
+            }
+        }
+        bDoUpdateMoveCounts |= bDoUpdateMoveCounts || (moveResult.Piece.Type == PieceType.King) || (moveResult.Piece.Type == PieceType.Rook);
+        if (bDoUpdateMoveCounts)
+        {
+            UpdateMoveCounts(moveResult, isUndo: true);
+        }
     }
     private void HandlePromotion(Color color, Square promotionSquare)
     {
@@ -551,46 +601,63 @@ public Board(IGame game)
         int selectedRow = fromSquare.Row;        
 
         Draw();
-        ConsoleKeyInfo keyInfo = Console.ReadKey();
-        while (keyInfo.Key != ConsoleKey.Spacebar && keyInfo.Key != ConsoleKey.Enter)
-        {            
-            switch(keyInfo.Key)
-            {
-                case ConsoleKey.DownArrow:
-                    if (IsValidSquare(fromSquare.Column, selectedRow - 1))
-                    {
-                        selectedRow--;                                                
-                    }
-                    break;
-                case ConsoleKey.UpArrow:
-                    if (IsValidSquare(fromSquare.Column, selectedRow + 1))
-                    {
-                        selectedRow++;
-                    }
-                    break;
-                case ConsoleKey.LeftArrow:
-                    if (IsValidSquare(selectedColumn - 1, fromSquare.Row))
-                    {
-                        selectedColumn--;
-                    }
-                    break;
-                case ConsoleKey.RightArrow:
-                    if (IsValidSquare(selectedColumn + 1, fromSquare.Row))
-                    {
-                        selectedColumn++;
-                    }
-                    break;
-            }
-            if (highlightedSquare != fromSquare)
-            {
-                fromSquare.Highlight(false);
-            }
-            fromSquare = GetSquare(selectedColumn, selectedRow);
-            fromSquare.Highlight(true);
-            Draw();
+        
+        try
+        {
+            ConsoleKeyInfo keyInfo = Console.ReadKey();
+            
+            while (keyInfo.Key != ConsoleKey.Spacebar && keyInfo.Key != ConsoleKey.Enter)
+            {            
+                switch(keyInfo.Key)
+                {
+                    case ConsoleKey.DownArrow:
+                        if (IsValidSquare(fromSquare.Column, selectedRow - 1))
+                        {
+                            selectedRow--;                                                
+                        }
+                        break;
+                    case ConsoleKey.UpArrow:
+                        if (IsValidSquare(fromSquare.Column, selectedRow + 1))
+                        {
+                            selectedRow++;
+                        }
+                        break;
+                    case ConsoleKey.LeftArrow:
+                        if (IsValidSquare(selectedColumn - 1, fromSquare.Row))
+                        {
+                            selectedColumn--;
+                        }
+                        break;
+                    case ConsoleKey.RightArrow:
+                        if (IsValidSquare(selectedColumn + 1, fromSquare.Row))
+                        {
+                            selectedColumn++;
+                        }
+                        break;
+                }
+                if (highlightedSquare != fromSquare)
+                {
+                    fromSquare.Highlight(false);
+                }
+                fromSquare = GetSquare(selectedColumn, selectedRow);
+                fromSquare.Highlight(true);
+                Draw();
 
-            keyInfo = Console.ReadKey();
+                 keyInfo = Console.ReadKey();
+            }
         }
+        catch (System.IO.IOException)
+        {
+            // Handle the exception when running in debug mode
+            Console.WriteLine("Input error occurred. Using default selection.");
+            // Just return the current square as a fallback
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Unexpected error: {ex.Message}. Using default selection.");
+            // Just return the current square as a fallback
+        }
+        
         return fromSquare;
     }
     public static bool IsValidSquare(Column column, int row)
@@ -669,91 +736,102 @@ public Board(IGame game)
     // color: the color that is in check. The opposite color is the attacker.
     public bool IsSquareInCheck(Square square, Color color, List<Piece>? attackingPieces, bool capturesOnly = true)
     {
-        bool result = false;
-        Square curSquare;
-        Column col = square.Column;
-        int row = square.Row;
-        Color oppositeColor = color == Color.White ? Color.Black : Color.White;
-        bool done = false;
-
-        for (int i = 0; i < CheckDirections.GetLength(0); i++)
-        {            
-            done = false;
-            col = square.Column + CheckDirections[i, 0];
-            row = square.Row + CheckDirections[i, 1];
-            while (IsValidSquare(col, row) && !done)
-            {
-                curSquare = GetSquare(col, row); // does curSquare have an attacker?
-                if (curSquare.Piece != null)
-                {
-                    done = true;
-                    if (curSquare.Piece.Color == oppositeColor)
-                    {
-                        bool isAttackingPiece = false;
-                        switch(curSquare.Piece.Type)
-                        {
-                            case PieceType.Pawn:
-                                int pawnOffset = color == Color.White ? 1 : -1;
-                                
-                                if (!capturesOnly) // include forward steps too?
-                                {
-                                    isAttackingPiece = BitBoard.IsBitSet(curSquare.Piece.ValidMoves, square.Row, square.Column);
-                                }
-                                else
-                                {
-                                    isAttackingPiece = (Square.IsDiagonal(square, curSquare) &&
-                                                       (square.Row + pawnOffset == curSquare.Row));
-                                }
-                                break;
-                            case PieceType.Rook:
-                                isAttackingPiece = (Square.IsHorizontal(square, curSquare)) ||
-                                                   (Square.IsVertical(square, curSquare));
-                                break;
-                            case PieceType.Bishop:
-                                isAttackingPiece = (Square.IsDiagonal(square, curSquare));
-                                break;
-                            case PieceType.Queen:
-                                isAttackingPiece = (Square.IsHorizontal(square, curSquare)) ||
-                                                   (Square.IsVertical(square, curSquare)) ||
-                                                   (Square.IsDiagonal(square, curSquare));
-                                break;
-                            case PieceType.King:
-                                int nrOfColumns = Math.Abs(square.Column - curSquare.Column);
-                                int nrOfRows = Math.Abs(square.Row - curSquare.Row);
-                                isAttackingPiece = (nrOfColumns > 0 || nrOfRows > 0) && nrOfColumns <= 1 && nrOfRows <= 1;                                 
-                                break;
-
-                        }
-                        if (isAttackingPiece)
-                        {
-                            attackingPieces?.Add(curSquare.Piece);
-                            result = true;
-                        }
-                    }
-                }
-                col += CheckDirections[i, 0];
-                row += CheckDirections[i, 1];
-            }
-        }
-        // Knight check
-        for (int i = 0; i < CheckKnightDirections.GetLength(0); i++)
+        try
         {
-            col = square.Column + CheckKnightDirections[i, 0];
-            row = square.Row + CheckKnightDirections[i, 1];
-            if (IsValidSquare(col, row))
-            {
-                curSquare = GetSquare(col, row);
-                if (curSquare.Piece != null)
+            if (square == null)
+                return false;
+                
+            bool result = false;
+            Square? curSquare;
+            Column col = square.Column;
+            int row = square.Row;
+            Color oppositeColor = color == Color.White ? Color.Black : Color.White;
+            bool done = false;
+
+            for (int i = 0; i < CheckDirections.GetLength(0); i++)
+            {            
+                done = false;
+                col = square.Column + CheckDirections[i, 0];
+                row = square.Row + CheckDirections[i, 1];
+                while (IsValidSquare(col, row) && !done)
                 {
-                    if (curSquare.Piece.Color == oppositeColor && curSquare.Piece.Type == PieceType.Knight)
+                    curSquare = GetSquare(col, row); // does curSquare have an attacker?
+                    if (curSquare != null && curSquare.Piece != null)
                     {
-                        result = true;
-                        attackingPieces?.Add(curSquare.Piece);
+                        done = true;
+                        if (curSquare.Piece.Color == oppositeColor)
+                        {
+                            bool isAttackingPiece = false;
+                            switch(curSquare.Piece.Type)
+                            {
+                                case PieceType.Pawn:
+                                    int pawnOffset = color == Color.White ? 1 : -1;
+                                    
+                                    if (!capturesOnly) // include forward steps too?
+                                    {
+                                        isAttackingPiece = BitBoard.IsBitSet(curSquare.Piece.ValidMoves, square.Row, square.Column);
+                                    }
+                                    else
+                                    {
+                                        isAttackingPiece = (Square.IsDiagonal(square, curSquare) &&
+                                                           (square.Row + pawnOffset == curSquare.Row));
+                                    }
+                                    break;
+                                case PieceType.Rook:
+                                    isAttackingPiece = (Square.IsHorizontal(square, curSquare)) ||
+                                                       (Square.IsVertical(square, curSquare));
+                                    break;
+                                case PieceType.Bishop:
+                                    isAttackingPiece = (Square.IsDiagonal(square, curSquare));
+                                    break;
+                                case PieceType.Queen:
+                                    isAttackingPiece = (Square.IsHorizontal(square, curSquare)) ||
+                                                       (Square.IsVertical(square, curSquare)) ||
+                                                       (Square.IsDiagonal(square, curSquare));
+                                    break;
+                                case PieceType.King:
+                                    int nrOfColumns = Math.Abs(square.Column - curSquare.Column);
+                                    int nrOfRows = Math.Abs(square.Row - curSquare.Row);
+                                    isAttackingPiece = (nrOfColumns > 0 || nrOfRows > 0) && nrOfColumns <= 1 && nrOfRows <= 1;                                 
+                                    break;
+
+                            }
+                            if (isAttackingPiece)
+                            {
+                                attackingPieces?.Add(curSquare.Piece);
+                                result = true;
+                            }
+                        }
+                    }
+                    col += CheckDirections[i, 0];
+                    row += CheckDirections[i, 1];
+                }
+            }
+            // Knight check
+            for (int i = 0; i < CheckKnightDirections.GetLength(0); i++)
+            {
+                col = square.Column + CheckKnightDirections[i, 0];
+                row = square.Row + CheckKnightDirections[i, 1];
+                if (IsValidSquare(col, row))
+                {
+                    curSquare = GetSquare(col, row);
+                    if (curSquare != null && curSquare.Piece != null)
+                    {
+                        if (curSquare.Piece.Color == oppositeColor && curSquare.Piece.Type == PieceType.Knight)
+                        {
+                            result = true;
+                            attackingPieces?.Add(curSquare.Piece);
+                        }
                     }
                 }
             }
+            return result;
         }
-        return result;
+        catch (Exception)
+        {
+            // If there's any exception, assume not in check
+            return false;
+        }
     }
     public bool IsSquareInCheck(Square square, Color color)
     {
@@ -856,4 +934,6 @@ public interface IBoard
     public CastlingRight GetCastlingRight(Color color);
     public CheckState GetCheckState();
     public bool IsSquareInCheck(Square square, Color color);
+    public MoveResultStruct Move(Color color, Square fromSquare, Square toSquare);
+    public void UndoMove(MoveResultStruct moveResult);
 }

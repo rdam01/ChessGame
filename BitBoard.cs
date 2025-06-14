@@ -32,14 +32,27 @@ public class BitBoard
             throw new Exception("BitBoard may not be 0!");
         }
     }
+    
     public static UInt64 SetBit(UInt64 bb, int row, Column col)
     {
         bb |= (ulong)1 << (char)(row * 8) + (char)col;
         return bb;
     }
+    
     public static bool IsBitSet(UInt64 bb, int row, Column col)
     {
         return ((bb & (ulong)1 << (char)(row * 8) + (char)col) != 0);
     }
+    
+    // Count the number of set bits in a bitboard (population count)
+    public static int PopCount(UInt64 bb)
+    {
+        int count = 0;
+        while (bb != 0)
+        {
+            count++;
+            bb &= bb - 1; // Clear the least significant bit set
+        }
+        return count;
+    }
 }
-

@@ -1,4 +1,5 @@
 ﻿// See https://aka.ms/new-console-template for more information
+using ChessGame;
 
 public class Game: IGame
 {
@@ -8,29 +9,67 @@ public class Game: IGame
     readonly Board _board;
     private GameResult _result;
     private MoveHistory _moveHistory;
+    private bool _useAI;
+    private int _aiSearchDepth;
 
-    public Game()
+    public Game(bool useAI = false, int aiSearchDepth = 7)
     {
-        _player1 = new Player
-        {
-            Color = Color.White
-        };
-        _player2 = new Player
-        {
-            Color = Color.Black
-        };
-        _currentPlayer = _player1;
+        _useAI = useAI;
+        _aiSearchDepth = aiSearchDepth;
         _board = new Board(this);
+        
+        if (_useAI)
+        {
+            // Human player is white, AI is black
+            _player1 = new Player
+            {
+                Color = Color.White
+            };
+            _player2 = new AI(_board, Color.Black, _aiSearchDepth);
+        }
+        else
+        {
+            // Regular two-player game
+            _player1 = new Player
+            {
+                Color = Color.White
+            };
+            _player2 = new Player
+            {
+                Color = Color.Black
+            };
+        }
+        
+        _currentPlayer = _player1;
         _result = GameResult.Undecided;
         _moveHistory = new MoveHistory();
     }
+    
     public void Play()
     {
         MoveResultStruct moveResult;
         while (_result == GameResult.Undecided)
         {
             _board.Draw();
-            moveResult = _board.Move(_currentPlayer.Color);
+            
+            if (_currentPlayer is AI aiPlayer)
+            {
+                // AI's turn
+                Console.WriteLine($"AI ({aiPlayer.Color}) is thinking...");
+                moveResult = aiPlayer.GetBestMove();
+                
+                // Make the move on the board
+                if (moveResult.MoveResult != MoveResult.Invalid)
+                {
+                    moveResult = _board.Move(aiPlayer.Color, moveResult.From, moveResult.To);
+                }
+            }
+            else
+            {
+                // Human player's turn
+                moveResult = _board.Move(_currentPlayer.Color);
+            }
+            
             _moveHistory.AddMove(moveResult);
 
             DetermineGameResult(moveResult);
@@ -46,10 +85,12 @@ public class Game: IGame
             }
         }
     }
+    
     private Player NextPlayer() 
     {
         return _currentPlayer == _player1? _player2 : _player1;
     }
+    
     private void DetermineGameResult(MoveResultStruct moveResult)
     {
         switch (moveResult.MoveResult)
@@ -62,6 +103,7 @@ public class Game: IGame
                 break;
         }
     }
+    
     private void ShowGameResult() 
     {
         switch (_result) 
@@ -80,6 +122,7 @@ public class Game: IGame
                 break;
         }
     }
+    
     public void DrawStatus()
     {
         Console.BackgroundColor = ConsoleColor.Black;
@@ -94,8 +137,14 @@ public class Game: IGame
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine();
         Console.WriteLine($"{_currentPlayer.Color} is to move");
+        
+        if (_currentPlayer is AI)
+        {
+            Console.WriteLine("AI is thinking...");
+        }
     }
 }
+
 public interface IGame
 {
     public void DrawStatus();
