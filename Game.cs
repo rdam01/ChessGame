@@ -23,9 +23,9 @@ public class Game: IGame
             // Human player is white, AI is black
             _player1 = new Player
             {
-                Color = Color.White
+                Color = Color.Black
             };
-            _player2 = new AI(_board, Color.Black, _aiSearchDepth);
+            _player2 = new AI(_board, Color.White, _aiSearchDepth);
         }
         else
         {
@@ -40,7 +40,7 @@ public class Game: IGame
             };
         }
         
-        _currentPlayer = _player1;
+        _currentPlayer = _player2;
         _result = GameResult.Undecided;
         _moveHistory = new MoveHistory();
     }

@@ -15,6 +15,10 @@ namespace ChessGame
             20000   // King - high value to ensure king safety
         };
         
+        // Hanging piece penalties
+        public static readonly int HANGING_PIECE_PENALTY = -50;  // Base penalty for undefended pieces
+        public static readonly int ATTACKED_PIECE_PENALTY = -30; // Additional penalty for pieces under attack
+        
         // Mobility bonuses - reward pieces that have more moves available
         public static readonly int[] MobilityBonus = {
             0,      // Pawn (handled separately)
@@ -147,6 +151,33 @@ namespace ChessGame
                     return 0;
             }
         }
+        
+        // Check if a piece is defended by any friendly piece
+        public static bool IsPieceDefended(IBoard board, Square square)
+        {
+            if (square.Piece == null)
+                return false;
+                
+            Color pieceColor = square.Piece.Color;
+            Color oppositeColor = pieceColor == Color.White ? Color.Black : Color.White;
+            
+            // Check if any friendly piece can move to this square
+            // This is a simplification - in a real implementation, we would need to check
+            // if any friendly piece can capture an enemy piece on this square
+            return board.IsSquareInCheck(square, oppositeColor);
+        }
+        
+        // Check if a piece is under attack by any enemy piece
+        public static bool IsPieceUnderAttack(IBoard board, Square square)
+        {
+            if (square.Piece == null)
+                return false;
+                
+            Color pieceColor = square.Piece.Color;
+            
+            // Use the board's IsSquareInCheck method to check if the square is under attack
+            return board.IsSquareInCheck(square, pieceColor);
+        }
 
         // Evaluate the current position
         public static int EvaluatePosition(IBoard board, Color currentPlayerColor)
@@ -271,6 +302,34 @@ namespace ChessGame
                                     whiteCenterControl += EXTENDED_CENTER_CONTROL_BONUS;
                                 }
                             }
+                            
+                            // Evaluate hanging pieces (not defended and/or under attack)
+                            // Skip pawns and king for this check
+                            if (square.Piece.Type != PieceType.Pawn && square.Piece.Type != PieceType.King)
+                            {
+                                bool isDefended = IsPieceDefended(board, square);
+                                bool isUnderAttack = IsPieceUnderAttack(board, square);
+                                
+                                // Penalize undefended pieces
+                                if (!isDefended)
+                                {
+                                    score += HANGING_PIECE_PENALTY;
+                                    
+                                    // Extra penalty if the piece is also under attack
+                                    if (isUnderAttack)
+                                    {
+                                        score += ATTACKED_PIECE_PENALTY;
+                                        
+                                        // Even more penalty based on piece value
+                                        score += -pieceValue / 10;
+                                    }
+                                }
+                                // Smaller penalty for defended pieces under attack
+                                else if (isUnderAttack)
+                                {
+                                    score += ATTACKED_PIECE_PENALTY / 2;
+                                }
+                            }
                         }
                         else // Black pieces
                         {
@@ -358,6 +417,34 @@ namespace ChessGame
                                 else
                                 {
                                     blackCenterControl += EXTENDED_CENTER_CONTROL_BONUS;
+                                }
+                            }
+                            
+                            // Evaluate hanging pieces (not defended and/or under attack)
+                            // Skip pawns and king for this check
+                            if (square.Piece.Type != PieceType.Pawn && square.Piece.Type != PieceType.King)
+                            {
+                                bool isDefended = IsPieceDefended(board, square);
+                                bool isUnderAttack = IsPieceUnderAttack(board, square);
+                                
+                                // Penalize undefended pieces
+                                if (!isDefended)
+                                {
+                                    score -= HANGING_PIECE_PENALTY;
+                                    
+                                    // Extra penalty if the piece is also under attack
+                                    if (isUnderAttack)
+                                    {
+                                        score -= ATTACKED_PIECE_PENALTY;
+                                        
+                                        // Even more penalty based on piece value
+                                        score -= -pieceValue / 10;
+                                    }
+                                }
+                                // Smaller penalty for defended pieces under attack
+                                else if (isUnderAttack)
+                                {
+                                    score -= ATTACKED_PIECE_PENALTY / 2;
                                 }
                             }
                         }

@@ -8,8 +8,8 @@ try
     Console.WriteLine("2. Two-player mode");
     Console.Write("Select mode (1 or 2): ");
 
-    // Default to two-player mode
-    bool useAI = false;
+    // Default to AI mode for testing
+    bool useAI = true;
     int aiDepth = 7; // Default depth
     
     // Try to read input, but have fallbacks for debugging environments
@@ -23,7 +23,7 @@ try
         {
             useAI = true;
             
-            Console.Write("Enter AI search depth (3-10, higher is stronger but slower): ");
+            Console.Write("Enter AI search depth (3-20, higher is stronger but slower): ");
             
             var depthTask = Task.Run(() => Console.ReadLine());
             bool depthCompleted = depthTask.Wait(TimeSpan.FromSeconds(5));
@@ -31,7 +31,7 @@ try
             if (depthCompleted && !string.IsNullOrEmpty(depthTask.Result) && 
                 int.TryParse(depthTask.Result, out int parsedDepth))
             {
-                aiDepth = Math.Max(3, Math.Min(10, parsedDepth)); // Clamp between 3 and 10
+                aiDepth = Math.Max(3, Math.Min(20, parsedDepth)); // Clamp between 3 and 10
             }
             else
             {

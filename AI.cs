@@ -15,6 +15,9 @@ namespace ChessGame
         private readonly int _lateMovePruningDepth;
         private readonly int _historyPruningThreshold;
         
+        // Opening book
+        private readonly PolyglotBook _openingBook;
+        
         // History heuristic for move ordering
         private readonly int[,] _historyTable;
 
@@ -30,6 +33,10 @@ namespace ChessGame
             Color = color;
             _searchDepth = searchDepth;
             _random = new Random();
+            
+            // Initialize opening book
+            _openingBook = new PolyglotBook(@"C:\Users\richa\Code\ChessGame\ChessGame\opening_book\Human-polyglot\Human.bin");
+            
             _transpositionTable = new Dictionary<ulong, TranspositionEntry>(1000000); // Larger table for ELO 2000
             _killerMoves = new int[_searchDepth + 4, 2]; // Store 2 killer moves per ply, with extra space for quiescence
             _historyTable = new int[64, 64]; // From-To square history heuristic
@@ -43,7 +50,24 @@ namespace ChessGame
         // Get the best move for the current position
         public MoveResultStruct GetBestMove()
         {
-            Console.WriteLine($"AI is thinking (depth {_searchDepth})...");
+            // First try to get a move from the opening book
+            MoveResultStruct bookMove = _openingBook.GetBookMove(_board, Color);
+            
+            if (bookMove.MoveResult != MoveResult.Invalid)
+            {
+                Console.WriteLine("Using opening book move");
+
+                MoveResultStruct moveResult = _board.Move(Color, bookMove.From, bookMove.To);
+                _board.UndoMove(moveResult);
+
+                if (moveResult.MoveResult != MoveResult.Invalid)
+                {
+                    return bookMove;
+                }
+            }
+            
+            // If no book move is available, use the search algorithm
+            Console.WriteLine($"Out of book. AI is thinking (depth {_searchDepth})...");
             
             // Clear killer moves for new search
             Array.Clear(_killerMoves, 0, _killerMoves.Length);
